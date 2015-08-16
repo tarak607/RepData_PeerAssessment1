@@ -1,25 +1,121 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+# Peer Assessment 1
 
-
-## Loading and preprocessing the data
-
-
-
-## What is mean total number of steps taken per day?
-
+```{r}
+library(ggplot2)
+library(dplyr)
+rm(list = ls())
+```
 
 
 ## What is the average daily activity pattern?
 
+### 1.Time Series Plot
+
+```{r,echo = TRUE}
+amd <- read.csv("activity.csv")
+
+amdagg <- aggregate(steps ~ interval,data = amd,FUN = "mean")
+
+with(amdagg,plot(interval,steps,type = "l",ylab = "Avg Steps",main = "Time Series Plot : Average steps taken vs 5 min interval" ))
+```
+
+### 2.Maximum number of steps for a 5 minute interval
+
+```{r,echo = TRUE}
+filter(amdagg,steps == max(amdagg$steps))
+```
+
+## Inputing Missing Values
+
+### 1.Report total number of missing values in the data set.
+
+```{r} 
+nrow(filter(amd,(is.na(steps) | is.na(date) | is.na(interval)))) 
+```
+
+### 2.Strategy for filling the missed values.
+
+```{r}
+amd_rm <- filter(amd,(is.na(steps) | is.na(date) | is.na(interval)))
+
+amd_non_rm <- filter(amd,(!is.na(steps) & !is.na(date) & !is.na(interval)))
+
+amd_rm <- inner_join(amd_rm,amdagg,by = "interval")
+
+names(amd_rm)  <- c("steps_old","date","interval","steps")
+
+amd_rm  <- amd_rm[c("steps","date","interval")]
+
+amd_new <- rbind(amd_rm,amd_non_rm)
+
+```
+
+### 3.New data set with no missing data.
+
+```{r}
+head(amd_new)
+
+nrow(filter(amd_new,(is.na(steps) | is.na(date) | is.na(interval))))
+```
+
+### 4.Histograms of steps.
+
+```{r}
+
+amdagg <- mutate(amd_new,weekday = weekdays(as.Date(date)))
+amdagg <- aggregate(amdagg$steps,by = list(amdagg$weekday),FUN = "sum")
+names(amdagg) <- c("Day","Steps")
+
+g <- ggplot(amdagg,aes(x = Day,y = Steps))
+
+g <- g + geom_bar(stat = "identity")
+
+g <- g + labs(title = "Total number of steps in each day") + labs(y = "Total Number of Steps" )
+
+print(g)
+
+mean_old <- mean(amd$steps,na.rm = TRUE)
+
+median_old <- median(amd$steps,na.rm = TRUE)
+
+mean_new <- mean(amd_new$steps)
+
+median_new <- median(amd_new$steps)
+
+```
+
+The new mean is `r mean_new`.The old mean was `r mean_old`.The new median is `r median_new`.The old median was `r median_old`.
+
+####There was no impact in imputing the data!
 
 
-## Imputing missing values
+## Activity Patterns between Weekdays and Weekends
+
+### 1.Data with new weekday and weekend variables.
+
+```{r}
+
+amd_new <- mutate(amd_new,weekday = weekdays(as.Date(date)))
+amd_new$day  <- sapply(amd_new$weekday,switch,Monday = 'weekday',Tuesday = 'weekday',Wednesday = 'weekday',Thursday = 'weekday',
+                       Friday = 'weekday',Saturday = 'weekend',Sunday = 'weekend') 
+amd_new[,5] <- as.factor(amd_new[,5])
+
+head(amd_new)
+
+str(amd_new)
+
+```
+
+### 2.Activity patterns on weekdays and weekends comparisions.
+
+```{r}
+amdagg <- aggregate(amd_new$steps,by = list(amd_new$interval,amd_new$day),FUN = "mean")
+names(amdagg) <- c("Interval","Day","Steps")
+g <- ggplot(amdagg,aes(x = Interval,y = Steps))
+g <- g + geom_line(aes(group = 1))
+g <- g + facet_grid(Day ~ .)
+g <- g + labs(title = "Activity Patterns on Weekdays and Weekends") + labs(y = "Avergage number of steps" )
+print(g)
+```
 
 
-
-## Are there differences in activity patterns between weekdays and weekends?
